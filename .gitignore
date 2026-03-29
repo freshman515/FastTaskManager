@@ -1,0 +1,18 @@
+# IDE and local tool state
+.claude/
+.dotnet/
+.idea/
+.vs/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Build outputs
+**/bin/
+**/obj/
+**/artifacts/

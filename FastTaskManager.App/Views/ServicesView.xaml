@@ -1,0 +1,156 @@
+<UserControl x:Class="FastTaskManager.App.Views.ServicesView"
+              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+              mc:Ignorable="d"
+              Loaded="UserControl_Loaded">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <Style x:Key="ServicesPillButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.85"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.7"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ServicesDangerButton" BasedOn="{StaticResource ServicesPillButton}" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="18,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="服务" Foreground="{DynamicResource TextBrush}" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Text="按系统服务状态聚合展示，支持搜索、启动、停止与重启。" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,6,0,0"/>
+                </StackPanel>
+                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12,8">
+                    <TextBlock Text="{Binding ServicesLastUpdatedText}" Foreground="{DynamicResource Muted2Brush}" FontSize="12"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="16,12"><StackPanel><TextBlock Text="RUNNING" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="Medium"/><TextBlock Text="{Binding RunningCount}" Foreground="{DynamicResource SuccessBrush}" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/></StackPanel></Border>
+            <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="16,12"><StackPanel><TextBlock Text="STOPPED" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="Medium"/><TextBlock Text="{Binding StoppedCount}" Foreground="{DynamicResource ErrorTextBrush}" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/></StackPanel></Border>
+            <Border Grid.Column="4" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="16,12"><StackPanel><TextBlock Text="HOST GROUPS" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="Medium"/><TextBlock Text="{Binding GroupedCount}" Foreground="{DynamicResource TextBrush}" FontSize="26" FontWeight="Bold" Margin="0,6,0,0"/></StackPanel></Border>
+            <Border Grid.Column="6" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14,12">
+                     <Grid>
+                         <Grid.ColumnDefinitions>
+                             <ColumnDefinition Width="*"/>
+                             <ColumnDefinition Width="Auto"/>
+                             <ColumnDefinition Width="Auto"/>
+                             <ColumnDefinition Width="Auto"/>
+                         </Grid.ColumnDefinitions>
+                     <Button Grid.Column="1" Content="启动" Width="72" Height="34" Margin="0,0,8,0" Style="{StaticResource ServicesPillButton}" Command="{Binding StartServiceCommand}"/>
+                     <Button Grid.Column="2" Content="停止" Width="72" Height="34" Margin="0,0,8,0" Style="{StaticResource ServicesDangerButton}" Command="{Binding StopServiceCommand}"/>
+                     <Button Grid.Column="3" Content="重启" Width="72" Height="34" Style="{StaticResource ServicesPillButton}" Background="{DynamicResource SurfaceAltBrush}" Command="{Binding RestartServiceCommand}"/>
+                 </Grid>
+             </Border>
+        </Grid>
+
+        <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+            <ListView ItemsSource="{Binding Services}" SelectedItem="{Binding SelectedService}" AlternationCount="2" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" HorizontalContentAlignment="Stretch" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListView.Resources>
+                    <Style TargetType="GridViewColumnHeader"><Setter Property="Background" Value="{DynamicResource PanelBrush}"/><Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="0,0,0,1"/><Setter Property="FontSize" Value="11"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="12,10"/></Style>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="MinHeight" Value="44"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="RowRoot" Background="Transparent">
+                                        <Grid>
+                                            <Border x:Name="SelectLine" Width="3" HorizontalAlignment="Left" CornerRadius="0,2,2,0" Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                                            <GridViewRowPresenter Margin="3,0,0,0" Content="{TemplateBinding Content}" Columns="{Binding Path=View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}"/>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="ItemsControl.AlternationIndex" Value="1"><Setter TargetName="RowRoot" Property="Background" Value="{DynamicResource SurfaceAltBrush}"/></Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowRoot" Property="Background" Value="{DynamicResource HoverAltBrush}"/></Trigger>
+                                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowRoot" Property="Background" Value="{DynamicResource SelectedBrush}"/><Setter TargetName="SelectLine" Property="Visibility" Value="Visible"/></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.Resources>
+                <ListView.View>
+                    <GridView AllowsColumnReorder="False">
+                        <GridViewColumn Width="220" Header="名称" DisplayMemberBinding="{Binding DisplayName}"/>
+                        <GridViewColumn Width="120" Header="服务名" DisplayMemberBinding="{Binding Name}"/>
+                        <GridViewColumn Width="80" Header="PID" DisplayMemberBinding="{Binding ProcessIdText}"/>
+                        <GridViewColumn Width="500" Header="描述" DisplayMemberBinding="{Binding Description}"/>
+                        <GridViewColumn Width="110" Header="状态">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="Pill" CornerRadius="10" Padding="10,4" Background="{DynamicResource SuccessBgBrush}" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}"/>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="False"><Setter TargetName="Pill" Property="Background" Value="{DynamicResource ErrorBgBrush}"/><Setter TargetName="Pill" Property="TextElement.Foreground" Value="{DynamicResource ErrorTextBrush}"/></DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Width="100" Header="启动类型" DisplayMemberBinding="{Binding StartModeText}"/>
+                        <GridViewColumn Width="180" Header="组" DisplayMemberBinding="{Binding GroupText}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <Border Grid.RowSpan="5" Background="{DynamicResource OverlayBrush}" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar Width="180" Height="4" IsIndeterminate="True"/>
+                <TextBlock Text="正在加载服务列表..." Foreground="{DynamicResource TextBrush}" Margin="0,14,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="4" Margin="18" Padding="16,14" Background="{DynamicResource ErrorBgBrush}" BorderBrush="{DynamicResource ErrorBorderBrush}" BorderThickness="1" CornerRadius="12">
+            <TextBlock Text="{Binding LoadErrorText}" Foreground="{DynamicResource ErrorTextBrush}" TextWrapping="Wrap"/>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding LoadErrorText}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding LoadErrorText}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+        </Border>
+    </Grid>
+</UserControl>
