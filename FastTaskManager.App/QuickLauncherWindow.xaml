@@ -130,9 +130,6 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="32" ShadowDepth="10" Direction="270" Color="#000000" Opacity="0.45" />
-            </Border.Effect>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

@@ -33,9 +33,13 @@ public partial class QuickLauncherWindow : Window
 
     public async Task ShowLauncherAsync()
     {
-        PositionWindow();
         await ViewModel.OpenAsync();
+        var previousOpacity = Opacity;
+        Opacity = 0;
         Show();
+        UpdateLayout();
+        PositionWindow();
+        Opacity = previousOpacity;
         Activate();
         SearchTextBox.Focus();
         SearchTextBox.SelectAll();
@@ -134,8 +138,14 @@ public partial class QuickLauncherWindow : Window
     private void PositionWindow()
     {
         var workArea = SystemParameters.WorkArea;
-        Left = workArea.Left + (workArea.Width - Width) / 2;
-        Top = workArea.Top + 72;
+        var windowWidth = ActualWidth > 0 ? ActualWidth : Width;
+        var windowHeight = ActualHeight > 0 ? ActualHeight : Math.Min(MaxHeight, 360d);
+        var centeredLeft = workArea.Left + (workArea.Width - windowWidth) / 2;
+        var centeredTop = workArea.Top + (workArea.Height - windowHeight) / 2;
+        var targetTop = centeredTop - 40;
+
+        Left = Math.Max(workArea.Left, centeredLeft);
+        Top = Math.Clamp(targetTop, workArea.Top + 36, workArea.Bottom - windowHeight - 36);
     }
 
     private bool HandleNavigationKey(KeyEventArgs e)
@@ -150,6 +160,14 @@ public partial class QuickLauncherWindow : Window
             case Key.Up:
                 ViewModel.SelectPrevious();
                 ScrollSelectedResultIntoView();
+                e.Handled = true;
+                return true;
+            case Key.K when ViewModel.SelectedProcess is not null
+                            && Keyboard.Modifiers.HasFlag(ModifierKeys.Control):
+                if (ViewModel.KillSelectedProcessCommand.CanExecute(null))
+                    ViewModel.KillSelectedProcessCommand.Execute(null);
+
+                HideLauncher();
                 e.Handled = true;
                 return true;
             case Key.Enter when ViewModel.SelectedProcess is not null:

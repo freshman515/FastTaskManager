@@ -114,16 +114,19 @@ public sealed class QuickLauncherViewModel : ObservableObject
 
     public bool HasQuery => !string.IsNullOrWhiteSpace(_searchText);
     public bool HasResults => _results.Count > 0;
-    public string SelectedPrimaryActionText => _currentAction.Verb switch
-    {
-        "kill" => "结束进程",
-        "killtree" => "结束进程树",
-        "suspend" => "暂停进程",
-        "resume" => "恢复进程",
-        "path" => "打开文件位置",
-        "priority" => $"设置优先级 {_currentAction.Priority}",
-        _ => "切换到窗口"
-    };
+    public string SelectedPrimaryActionText =>
+        _currentAction.Verb == "open"
+            ? SelectedProcess?.IsWindowMatch == true ? "切换到窗口" : "结束进程"
+            : _currentAction.Verb switch
+            {
+                "kill" => "结束进程",
+                "killtree" => "结束进程树",
+                "suspend" => "暂停进程",
+                "resume" => "恢复进程",
+                "path" => "打开文件位置",
+                "priority" => $"设置优先级 {_currentAction.Priority}",
+                _ => "切换到窗口"
+            };
     public string ModeHintText => _currentAction.Verb switch
     {
         "kill" => "Kill",
@@ -444,6 +447,18 @@ public sealed class QuickLauncherViewModel : ObservableObject
 
     private async Task ExecutePrimaryActionAsync()
     {
+        if (_currentAction.Verb == "open")
+        {
+            if (SelectedProcess?.IsWindowMatch == true)
+            {
+                await ActivateSelectedProcessAsync();
+                return;
+            }
+
+            await KillAsync(entireTree: false);
+            return;
+        }
+
         switch (_currentAction.Verb)
         {
             case "kill":
