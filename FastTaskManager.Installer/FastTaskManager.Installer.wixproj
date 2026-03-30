@@ -1,0 +1,16 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputName>FastTaskManager-Setup</OutputName>
+    <!-- 默认发布目录，可通过命令行 -p:PublishDir=... 覆盖 -->
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\publish\win-x64\</PublishDir>
+    <!-- 将 MSBuild 属性显式暴露为 WiX 预处理变量 $(var.PublishDir) -->
+    <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UI 扩展由 NuGet SDK 加载，不需要 wix extension add -->
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="FastTaskManager"
+           Manufacturer="pragma"
+           Version="1.0.0.0"
+           UpgradeCode="{F3A2B1C0-D4E5-4F60-8A7B-9C0D1E2F3A4B}"
+           Language="2052"
+           Codepage="936">
+
+    <!-- 覆盖安装自动卸载旧版本 -->
+    <MajorUpgrade DowngradeErrorMessage="已安装更高版本，无法降级安装。" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 安装向导 UI（可选择安装目录） -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <Feature Id="Main" Title="FastTaskManager" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="Shortcut_Desktop" />
+      <ComponentRef Id="Shortcut_StartMenu" />
+    </Feature>
+
+  </Package>
+
+  <!-- ── 目录结构 ──────────────────────────────────────────────────────────── -->
+  <!-- WiX v5：标准目录用 StandardDirectory，不能用 Directory 重复定义        -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="FastTaskManager" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppStartMenuFolder" Name="FastTaskManager" />
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- ── 应用文件（自动收录发布目录） ─────────────────────────────────────── -->
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ── 快捷方式 ──────────────────────────────────────────────────────────── -->
+  <Fragment>
+
+    <Icon Id="AppIcon" SourceFile="..\FastTaskManager.App\Resources\进程管理.ico" />
+
+    <!-- 桌面快捷方式：DesktopFolder 是内置虚拟符号，直接引用即可 -->
+    <Component Id="Shortcut_Desktop" Directory="DesktopFolder">
+      <Shortcut Id="DesktopShortcut"
+                Name="FastTaskManager"
+                Description="快速任务管理器"
+                Target="[INSTALLFOLDER]FastTaskManager.App.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\FastTaskManager"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- 开始菜单快捷方式 -->
+    <Component Id="Shortcut_StartMenu" Directory="AppStartMenuFolder">
+      <Shortcut Id="StartMenuShortcut"
+                Name="FastTaskManager"
+                Description="快速任务管理器"
+                Target="[INSTALLFOLDER]FastTaskManager.App.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="RemoveAppStartMenuFolder"
+                    Directory="AppStartMenuFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\FastTaskManager"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+  </Fragment>
+
+</Wix>

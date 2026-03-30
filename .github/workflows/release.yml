@@ -1,0 +1,101 @@
+name: 发布 MSI 安装包
+
+on:
+  # 推送 v* 标签时自动触发（如 git tag v1.0.0 && git push --tags）
+  push:
+    tags:
+      - 'v*'
+  # 也可在 Actions 页面手动触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.0）'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 缓存 NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-
+
+      # WiX SDK 通过 NuGet 自动拉取，无需全局安装 wix CLI
+
+      - name: 解析版本号
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $v = "${{ github.ref_name }}".TrimStart('v')
+          } else {
+            $v = "${{ github.event.inputs.version }}"
+          }
+          echo "VERSION=$v" >> $env:GITHUB_OUTPUT
+          echo "VERSION4=$v.0" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: 发布应用（self-contained 单文件）
+        shell: pwsh
+        run: |
+          dotnet publish FastTaskManager.App/FastTaskManager.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version="${{ steps.ver.outputs.VERSION4 }}" `
+            -o publish/win-x64
+
+      - name: 打包 MSI
+        shell: pwsh
+        run: |
+          dotnet build FastTaskManager.Installer/FastTaskManager.Installer.wixproj `
+            -c Release `
+            "-p:PublishDir=${{ github.workspace }}/publish/win-x64/" `
+            -p:Version="${{ steps.ver.outputs.VERSION4 }}"
+
+      - name: 重命名 MSI（含版本号）
+        shell: pwsh
+        run: |
+          $src = Get-ChildItem "FastTaskManager.Installer/bin/Release/*.msi" | Select-Object -First 1
+          $dst = "FastTaskManager.Installer/bin/Release/FastTaskManager-v${{ steps.ver.outputs.VERSION }}-Setup.msi"
+          Move-Item $src.FullName $dst
+          echo "MSI_PATH=$dst" >> $env:GITHUB_ENV
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastTaskManager-v${{ steps.ver.outputs.VERSION }}-Setup
+          path: ${{ env.MSI_PATH }}
+          retention-days: 30
+
+      # 仅 tag 推送时创建 GitHub Release
+      - name: 创建 GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: FastTaskManager v${{ steps.ver.outputs.VERSION }}
+          body: |
+            ## 安装说明
+            1. 下载 `.msi` 文件
+            2. 双击运行，按向导完成安装
+            3. 桌面和开始菜单会自动生成快捷方式
+
+            > 无需额外安装 .NET 运行时（已内置）
+          files: ${{ env.MSI_PATH }}
+          draft: false
+          prerelease: ${{ contains(steps.ver.outputs.VERSION, '-') }}
