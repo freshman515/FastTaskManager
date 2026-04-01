@@ -1,16 +1,16 @@
 # FastTaskManager
 
-一款轻量、快速的 Windows 任务管理器，支持进程管理、性能监控、服务控制、启动项管理与全局快捷键快速唤起。
+FastTaskManager 是一款面向 Windows 的轻量任务管理工具，聚焦日常系统维护场景，提供更直接的进程、服务、启动项与性能查看体验。
 
-## 功能
+## 主要功能
 
-- **进程管理** — 查看、搜索、结束进程，支持按类别过滤
-- **性能监控** — CPU、内存等实时性能数据
-- **服务控制** — 查看和管理 Windows 服务
-- **启动项管理** — 管理开机自启动程序
-- **快速启动窗口** — 全局快捷键唤起，快速操作
-- **系统托盘** — 最小化到托盘，后台常驻
-- **主题切换** — 支持明暗主题
+- **进程管理**：查看、搜索、筛选和结束进程，适合快速定位资源占用异常项
+- **性能监控**：实时展示 CPU、内存等系统状态
+- **服务管理**：查看 Windows 服务状态，并执行启动、停止、重启、暂停等操作
+- **启动应用管理**：统一查看和管理开机启动项
+- **快速启动窗口**：支持快捷唤起，减少切换成本
+- **系统托盘常驻**：便于后台运行和随时调出
+- **主题切换**：支持明暗主题切换
 
 ## 安装
 
@@ -18,39 +18,20 @@
 
 > 无需额外安装 .NET 运行时，开箱即用。
 
-## 开发
+## 使用场景
 
-**环境要求**
+- 想快速结束高占用进程
+- 想检查系统当前资源负载
+- 想管理 Windows 服务而不打开系统控制台
+- 想整理或禁用开机自启动项
 
-- Windows 10/11
-- .NET 8 SDK
+## 运行环境
 
-**本地运行**
-
-```bash
-git clone https://github.com/freshman515/FastTaskManager.git
-cd FastTaskManager
-dotnet run --project FastTaskManager.App
-```
-
-**本地打包 MSI**
-
-```powershell
-.\build-installer.ps1 -Version 1.0.0
-```
-
-**发布新版本**
-
-```bash
-git tag v1.x.x
-git push origin v1.x.x
-```
-
-推送 tag 后 GitHub Actions 自动构建并发布 Release。
+- Windows 10 / 11
+- x64
 
 ## 技术栈
 
 - WPF / .NET 8
-- CommunityToolkit.Mvvm
 - Hardcodet.NotifyIcon.Wpf
-- WiX Toolset v5（MSI 打包）
+- WiX Toolset v5
