@@ -1,6 +1,7 @@
 using System.ServiceProcess;
 using System.Text.RegularExpressions;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Management;
 using FastTaskManager.App.Models;
 using Microsoft.Win32;
@@ -15,6 +16,8 @@ public sealed class WindowsServicesService
     public IReadOnlyList<WindowsServiceItem> GetServices()
     {
         var result = new List<WindowsServiceItem>();
+        var serviceProcesses = GetServiceProcessIds();
+        var portsByProcessId = GetListeningPortsByProcessId();
 
         foreach (var controller in ServiceController.GetServices())
         {
@@ -24,6 +27,7 @@ public sealed class WindowsServicesService
                 {
                     var metadata = GetMetadata(controller.ServiceName);
                     var status = controller.Status;
+                    serviceProcesses.TryGetValue(controller.ServiceName, out var processId);
 
                     result.Add(new WindowsServiceItem
                     {
@@ -31,12 +35,13 @@ public sealed class WindowsServicesService
                         DisplayName = controller.DisplayName,
                         Description = metadata.Description,
                         GroupText = metadata.GroupText,
+                        PortText = GetPortText(processId, portsByProcessId),
                         StartModeText = metadata.StartModeText,
                         StatusText = NormalizeState(status),
                         IsRunning = status == ServiceControllerStatus.Running,
                         IsPaused = status == ServiceControllerStatus.Paused,
                         CanPauseAndContinue = controller.CanPauseAndContinue,
-                        ProcessId = null
+                        ProcessId = processId > 0 ? processId : null
                     });
                 }
                 catch
@@ -179,6 +184,118 @@ public sealed class WindowsServicesService
         {
             throw CreateServiceOperationException("恢复", serviceName, ex);
         }
+    }
+
+    private static IReadOnlyDictionary<string, int> GetServiceProcessIds()
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT Name, ProcessId FROM Win32_Service");
+            using var services = searcher.Get();
+            foreach (ManagementObject service in services)
+            {
+                var name = service["Name"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                var processId = Convert.ToInt32(service["ProcessId"] ?? 0);
+                result[name] = processId;
+            }
+        }
+        catch
+        {
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyDictionary<int, string> GetListeningPortsByProcessId()
+    {
+        var result = new Dictionary<int, SortedSet<int>>();
+        CollectPorts("tcp", IsTcpListeningLine, result);
+        CollectPorts("udp", static _ => true, result);
+
+        return result.ToDictionary(
+            pair => pair.Key,
+            pair => string.Join(", ", pair.Value),
+            EqualityComparer<int>.Default);
+    }
+
+    private static void CollectPorts(string protocol, Func<string[], bool> isIncluded, IDictionary<int, SortedSet<int>> result)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "netstat",
+                    Arguments = $"-ano -p {protocol}",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(5000);
+
+            foreach (var line in output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var parts = Regex.Split(line, @"\s+");
+                if (parts.Length < 4 || !parts[0].Equals(protocol, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!isIncluded(parts))
+                    continue;
+
+                var localAddress = parts[1];
+                var processIdText = parts[^1];
+                if (!int.TryParse(processIdText, out var processId) || processId <= 0)
+                    continue;
+
+                if (!TryParsePort(localAddress, out var port))
+                    continue;
+
+                if (!result.TryGetValue(processId, out var ports))
+                {
+                    ports = [];
+                    result[processId] = ports;
+                }
+
+                ports.Add(port);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static bool IsTcpListeningLine(string[] parts) =>
+        parts.Length >= 5 && parts[3].Equals("LISTENING", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryParsePort(string endpoint, out int port)
+    {
+        var lastColonIndex = endpoint.LastIndexOf(':');
+        if (lastColonIndex < 0 || lastColonIndex == endpoint.Length - 1)
+        {
+            port = 0;
+            return false;
+        }
+
+        return int.TryParse(endpoint[(lastColonIndex + 1)..], out port) && port > 0;
+    }
+
+    private static string GetPortText(int processId, IReadOnlyDictionary<int, string> portsByProcessId)
+    {
+        if (processId <= 0)
+            return string.Empty;
+
+        return portsByProcessId.TryGetValue(processId, out var ports) ? ports : string.Empty;
     }
 
     private ServiceMetadata GetMetadata(string serviceName)

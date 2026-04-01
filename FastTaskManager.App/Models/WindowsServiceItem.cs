@@ -13,6 +13,7 @@ public sealed class WindowsServiceItem : ObservableObject
     public required string DisplayName { get; init; }
     public string Description { get; init; } = string.Empty;
     public string GroupText { get; init; } = string.Empty;
+    public string PortText { get; init; } = string.Empty;
     public string StartModeText { get; init; } = string.Empty;
     public bool CanPauseAndContinue { get; init; }
 

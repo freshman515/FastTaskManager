@@ -282,6 +282,7 @@ public sealed class ServicesViewModel : ObservableObject
                || item.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                || item.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                || item.GroupText.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+               || item.PortText.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                || item.ProcessIdText.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -127,6 +127,7 @@
                         <GridViewColumn Width="220" Header="名称" DisplayMemberBinding="{Binding DisplayName}"/>
                         <GridViewColumn Width="120" Header="服务名" DisplayMemberBinding="{Binding Name}"/>
                         <GridViewColumn Width="80" Header="PID" DisplayMemberBinding="{Binding ProcessIdText}"/>
+                        <GridViewColumn Width="160" Header="端口" DisplayMemberBinding="{Binding PortText}"/>
                         <GridViewColumn Width="500" Header="描述" DisplayMemberBinding="{Binding Description}"/>
                         <GridViewColumn Width="110" Header="状态">
                             <GridViewColumn.CellTemplate>
