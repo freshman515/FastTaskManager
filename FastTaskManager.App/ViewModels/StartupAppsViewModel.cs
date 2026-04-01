@@ -15,6 +15,7 @@ public sealed class StartupAppsViewModel : ObservableObject
     private readonly RelayCommand<StartupAppItem> _toggleStartupStateCommand;
     private readonly RelayCommand<StartupAppItem> _openStartupLocationCommand;
     private readonly RelayCommand<StartupAppItem> _copyStartupCommandCommand;
+    private readonly AsyncCommand _refreshCommand;
 
     private int _startupEnabledCount;
     private int _startupDisabledCount;
@@ -31,6 +32,7 @@ public sealed class StartupAppsViewModel : ObservableObject
         _toggleStartupStateCommand = new RelayCommand<StartupAppItem>(item => _ = ToggleStartupStateAsync(item), item => item is not null);
         _openStartupLocationCommand = new RelayCommand<StartupAppItem>(item => _ = OpenStartupLocationAsync(item), item => item?.CanOpenLocation == true);
         _copyStartupCommandCommand = new RelayCommand<StartupAppItem>(item => SafeCopy(item?.CommandText), item => !string.IsNullOrWhiteSpace(item?.CommandText));
+        _refreshCommand = new AsyncCommand(RefreshAsync);
     }
 
     public IEnumerable<StartupAppItem> StartupApps => _startupApps;
@@ -38,6 +40,7 @@ public sealed class StartupAppsViewModel : ObservableObject
     public RelayCommand<StartupAppItem> ToggleStartupStateCommand => _toggleStartupStateCommand;
     public RelayCommand<StartupAppItem> OpenStartupLocationCommand => _openStartupLocationCommand;
     public RelayCommand<StartupAppItem> CopyStartupCommandCommand => _copyStartupCommandCommand;
+    public AsyncCommand RefreshCommand => _refreshCommand;
 
     public int StartupEnabledCount
     {

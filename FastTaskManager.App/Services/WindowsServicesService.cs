@@ -1,5 +1,7 @@
 using System.ServiceProcess;
 using System.Text.RegularExpressions;
+using System.ComponentModel;
+using System.Management;
 using FastTaskManager.App.Models;
 using Microsoft.Win32;
 
@@ -32,6 +34,8 @@ public sealed class WindowsServicesService
                         StartModeText = metadata.StartModeText,
                         StatusText = NormalizeState(status),
                         IsRunning = status == ServiceControllerStatus.Running,
+                        IsPaused = status == ServiceControllerStatus.Paused,
+                        CanPauseAndContinue = controller.CanPauseAndContinue,
                         ProcessId = null
                     });
                 }
@@ -49,45 +53,132 @@ public sealed class WindowsServicesService
 
     public async Task StartServiceAsync(string serviceName)
     {
-        using var controller = new ServiceController(serviceName);
-        if (controller.Status == ServiceControllerStatus.Running)
-            return;
+        try
+        {
+            using var controller = new ServiceController(serviceName);
+            if (controller.Status == ServiceControllerStatus.Running)
+                return;
 
+            await Task.Run(() =>
+            {
+                controller.Start();
+                controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
+            });
+        }
+        catch (Exception ex)
+        {
+            throw CreateServiceOperationException("启动", serviceName, ex);
+        }
+    }
+
+    public ServiceStartDiagnostic DiagnoseStartFailure(string serviceName)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return DiagnoseStartFailureCore(serviceName, visited);
+    }
+
+    public async Task SetStartModeAsync(string serviceName, ServiceStartMode startMode)
+    {
         await Task.Run(() =>
         {
-            controller.Start();
-            controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
+            using var service = new ManagementObject($"Win32_Service.Name='{serviceName}'");
+            var targetMode = startMode switch
+            {
+                ServiceStartMode.Automatic => "Automatic",
+                ServiceStartMode.Disabled => "Disabled",
+                _ => "Manual"
+            };
+
+            var result = Convert.ToUInt32(service.InvokeMethod("ChangeStartMode", [targetMode]) ?? 1u);
+            if (result != 0)
+                throw new InvalidOperationException($"修改服务 \"{serviceName}\" 的启动类型失败，错误码：{result}。");
+
+            _metadataCache.Remove(serviceName);
         });
     }
 
     public async Task StopServiceAsync(string serviceName)
     {
-        using var controller = new ServiceController(serviceName);
-        if (controller.Status == ServiceControllerStatus.Stopped)
-            return;
-
-        await Task.Run(() =>
+        try
         {
-            controller.Stop();
-            controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(15));
-        });
+            using var controller = new ServiceController(serviceName);
+            if (controller.Status == ServiceControllerStatus.Stopped)
+                return;
+
+            await Task.Run(() =>
+            {
+                controller.Stop();
+                controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(15));
+            });
+        }
+        catch (Exception ex)
+        {
+            throw CreateServiceOperationException("停止", serviceName, ex);
+        }
     }
 
     public async Task RestartServiceAsync(string serviceName)
     {
-        using var controller = new ServiceController(serviceName);
-
-        await Task.Run(() =>
+        try
         {
-            if (controller.Status != ServiceControllerStatus.Stopped)
-            {
-                controller.Stop();
-                controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(15));
-            }
+            using var controller = new ServiceController(serviceName);
 
-            controller.Start();
-            controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
-        });
+            await Task.Run(() =>
+            {
+                if (controller.Status != ServiceControllerStatus.Stopped)
+                {
+                    controller.Stop();
+                    controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(15));
+                }
+
+                controller.Start();
+                controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
+            });
+        }
+        catch (Exception ex)
+        {
+            throw CreateServiceOperationException("重启", serviceName, ex);
+        }
+    }
+
+    public async Task PauseServiceAsync(string serviceName)
+    {
+        try
+        {
+            using var controller = new ServiceController(serviceName);
+            if (!controller.CanPauseAndContinue || controller.Status == ServiceControllerStatus.Paused)
+                return;
+
+            await Task.Run(() =>
+            {
+                controller.Pause();
+                controller.WaitForStatus(ServiceControllerStatus.Paused, TimeSpan.FromSeconds(15));
+            });
+        }
+        catch (Exception ex)
+        {
+            throw CreateServiceOperationException("暂停", serviceName, ex);
+        }
+    }
+
+    public async Task ResumeServiceAsync(string serviceName)
+    {
+        try
+        {
+            using var controller = new ServiceController(serviceName);
+            if (!controller.CanPauseAndContinue || controller.Status == ServiceControllerStatus.Running)
+                return;
+
+            await Task.Run(() =>
+            {
+                controller.Continue();
+                controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(15));
+            });
+        }
+        catch (Exception ex)
+        {
+            throw CreateServiceOperationException("恢复", serviceName, ex);
+        }
     }
 
     private ServiceMetadata GetMetadata(string serviceName)
@@ -141,8 +232,107 @@ public sealed class WindowsServicesService
         _ => string.Empty
     };
 
+    private static Exception CreateServiceOperationException(string operation, string serviceName, Exception exception)
+    {
+        if (TryGetWin32ErrorCode(exception, out var errorCode))
+        {
+            return errorCode switch
+            {
+                5 => new UnauthorizedAccessException($"无法{operation}服务 \"{serviceName}\"，当前进程没有管理员权限。请以管理员身份重新启动应用后再试。", exception),
+                1058 => new InvalidOperationException($"无法{operation}服务 \"{serviceName}\"，该服务已被禁用。", exception),
+                1060 => new InvalidOperationException($"无法{operation}服务 \"{serviceName}\"，系统中找不到该服务。", exception),
+                _ => new InvalidOperationException($"无法{operation}服务 \"{serviceName}\"：{exception.Message}", exception)
+            };
+        }
+
+        return new InvalidOperationException($"无法{operation}服务 \"{serviceName}\"：{exception.Message}", exception);
+    }
+
+    private static bool TryGetWin32ErrorCode(Exception exception, out int errorCode)
+    {
+        if (exception is Win32Exception win32Exception)
+        {
+            errorCode = win32Exception.NativeErrorCode;
+            return true;
+        }
+
+        if (exception.InnerException is not null)
+            return TryGetWin32ErrorCode(exception.InnerException, out errorCode);
+
+        errorCode = 0;
+        return false;
+    }
+
+    private ServiceStartDiagnostic DiagnoseStartFailureCore(string serviceName, HashSet<string> visited)
+    {
+        if (!visited.Add(serviceName))
+            return ServiceStartDiagnostic.Empty;
+
+        using var controller = new ServiceController(serviceName);
+        var metadata = GetMetadata(serviceName);
+        var disabledDependencies = new List<DisabledDependency>();
+
+        foreach (var dependency in controller.ServicesDependedOn)
+        {
+            using (dependency)
+            {
+                var dependencyDiagnostic = DiagnoseStartFailureCore(dependency.ServiceName, visited);
+                if (dependencyDiagnostic.IsServiceDisabled)
+                {
+                    disabledDependencies.Add(new DisabledDependency(
+                        dependency.ServiceName,
+                        SafeGetDisplayName(dependency),
+                        dependencyDiagnostic.ServiceStartModeText));
+                }
+
+                if (dependencyDiagnostic.DisabledDependencies.Count > 0)
+                    disabledDependencies.AddRange(dependencyDiagnostic.DisabledDependencies);
+            }
+        }
+
+        return new ServiceStartDiagnostic(
+            serviceName,
+            SafeGetDisplayName(controller),
+            string.Equals(metadata.StartModeText, "禁用", StringComparison.Ordinal),
+            metadata.StartModeText,
+            disabledDependencies
+                .DistinctBy(item => item.ServiceName, StringComparer.OrdinalIgnoreCase)
+                .ToList());
+    }
+
+    private static string SafeGetDisplayName(ServiceController controller)
+    {
+        try
+        {
+            return controller.DisplayName;
+        }
+        catch
+        {
+            return controller.ServiceName;
+        }
+    }
+
     private readonly record struct ServiceMetadata(string Description, string GroupText, string StartModeText)
     {
         public static ServiceMetadata Empty => new(string.Empty, string.Empty, string.Empty);
+    }
+
+    public sealed record ServiceStartDiagnostic(
+        string ServiceName,
+        string DisplayName,
+        bool IsServiceDisabled,
+        string ServiceStartModeText,
+        IReadOnlyList<DisabledDependency> DisabledDependencies)
+    {
+        public static ServiceStartDiagnostic Empty => new(string.Empty, string.Empty, false, string.Empty, []);
+    }
+
+    public sealed record DisabledDependency(string ServiceName, string DisplayName, string StartModeText);
+
+    public enum ServiceStartMode
+    {
+        Manual,
+        Automatic,
+        Disabled
     }
 }

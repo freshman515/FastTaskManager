@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using System.Windows.Input;
 using FastTaskManager.App.ViewModels;
 
 namespace FastTaskManager.App.Views;
@@ -16,5 +17,11 @@ public partial class ServicesView : UserControl
             return;
 
         await viewModel.EnsureLoadedAsync();
+    }
+
+    private void ListViewItem_SelectOnRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListViewItem item)
+            item.IsSelected = true;
     }
 }

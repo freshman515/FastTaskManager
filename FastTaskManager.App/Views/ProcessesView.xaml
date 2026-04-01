@@ -4,6 +4,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
+   <UserControl.InputBindings>
+       <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+   </UserControl.InputBindings>
    <UserControl.Resources>
        <!-- 分类筛选 Tab 按钮样式 -->
         <Style x:Key="FilterTabStyle" TargetType="RadioButton">

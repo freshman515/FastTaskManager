@@ -47,6 +47,7 @@ public sealed class ProcessesViewModel : ObservableObject
     private readonly RelayCommand _copyPidCommand;
     private readonly RelayCommand _copyPathCommand;
     private readonly RelayCommand<string> _setFilterCommand;
+    private readonly AsyncCommand _refreshCommand;
 
     public ProcessesViewModel(
         ProcessMonitorService processMonitorService,
@@ -71,6 +72,7 @@ public sealed class ProcessesViewModel : ObservableObject
         _copyNameCommand = new RelayCommand(() => SafeCopy(SelectedProcess?.DisplayName), hasSelection);
         _copyPidCommand = new RelayCommand(() => SafeCopy(SelectedProcess?.PidText), hasIndividualSelection);
         _copyPathCommand = new RelayCommand(() => SafeCopy(SelectedProcess?.PathText), hasIndividualSelection);
+        _refreshCommand = new AsyncCommand(RefreshAsync);
         _setFilterCommand = new RelayCommand<string>(filter =>
         {
             if (Enum.TryParse<ProcessCategory>(filter, out var cat) && cat != _activeFilter)
@@ -110,6 +112,7 @@ public sealed class ProcessesViewModel : ObservableObject
     public RelayCommand CopyNameCommand => _copyNameCommand;
     public RelayCommand CopyPidCommand => _copyPidCommand;
     public RelayCommand CopyPathCommand => _copyPathCommand;
+    public AsyncCommand RefreshCommand => _refreshCommand;
 
     public ProcessDisplayItem? SelectedProcess
     {
@@ -199,6 +202,8 @@ public sealed class ProcessesViewModel : ObservableObject
         LastUpdatedText = nowText;
         UpdateAssessment(totalCpu, memory.LoadPct, nowText);
     }
+
+    public Task RefreshAsync() => _appShellService.RequestRealtimeRefreshAsync();
 
     private void UpdateCategoryCounts(IReadOnlyList<ProcessSnapshot> snapshots)
     {

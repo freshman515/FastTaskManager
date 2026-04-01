@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,19 +19,6 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        // if (!IsAdministrator())
-        // {
-        //     var psi = new ProcessStartInfo
-        //     {
-        //         FileName = Environment.ProcessPath,
-        //         UseShellExecute = true,
-        //         Verb = "runas"
-        //     };
-        //     Process.Start(psi);
-        //     Shutdown();
-        //     return;
-        // }
-
         base.OnStartup(e);
         RegisterGlobalExceptionHandlers();
 
@@ -80,6 +65,7 @@ public partial class App : Application
         services.AddSingleton<WindowCoordinator>();
         services.AddSingleton<TrayService>();
         services.AddSingleton<DialogService>();
+        services.AddSingleton<PrivilegeService>();
         services.AddSingleton<StartupLaunchService>();
 
         services.AddSingleton<ProcessMonitorService>();
@@ -104,11 +90,6 @@ public partial class App : Application
 
         return services.BuildServiceProvider();
     }
-
-    private static bool IsAdministrator() =>
-        new WindowsPrincipal(WindowsIdentity.GetCurrent())
-            .IsInRole(WindowsBuiltInRole.Administrator);
-
     private void RegisterGlobalExceptionHandlers()
     {
         DispatcherUnhandledException += (_, args) =>

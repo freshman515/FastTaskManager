@@ -6,6 +6,7 @@ public sealed class WindowsServiceItem : ObservableObject
 {
     private string _statusText = "未知";
     private bool _isRunning;
+    private bool _isPaused;
     private int? _processId;
 
     public required string Name { get; init; }
@@ -13,6 +14,7 @@ public sealed class WindowsServiceItem : ObservableObject
     public string Description { get; init; } = string.Empty;
     public string GroupText { get; init; } = string.Empty;
     public string StartModeText { get; init; } = string.Empty;
+    public bool CanPauseAndContinue { get; init; }
 
     public int? ProcessId
     {
@@ -33,11 +35,39 @@ public sealed class WindowsServiceItem : ObservableObject
     public bool IsRunning
     {
         get => _isRunning;
-        set => SetProperty(ref _isRunning, value);
+        set
+        {
+            if (SetProperty(ref _isRunning, value))
+            {
+                OnPropertyChanged(nameof(CanStart));
+                OnPropertyChanged(nameof(CanStop));
+                OnPropertyChanged(nameof(CanRestart));
+                OnPropertyChanged(nameof(CanPause));
+                OnPropertyChanged(nameof(CanResume));
+            }
+        }
+    }
+
+    public bool IsPaused
+    {
+        get => _isPaused;
+        set
+        {
+            if (SetProperty(ref _isPaused, value))
+            {
+                OnPropertyChanged(nameof(CanStart));
+                OnPropertyChanged(nameof(CanStop));
+                OnPropertyChanged(nameof(CanRestart));
+                OnPropertyChanged(nameof(CanPause));
+                OnPropertyChanged(nameof(CanResume));
+            }
+        }
     }
 
     public string ProcessIdText => ProcessId.HasValue && ProcessId.Value > 0 ? ProcessId.Value.ToString() : string.Empty;
-    public bool CanStart => !IsRunning;
-    public bool CanStop => IsRunning;
-    public bool CanRestart => IsRunning;
+    public bool CanStart => !IsRunning && !IsPaused;
+    public bool CanStop => IsRunning || IsPaused;
+    public bool CanRestart => IsRunning || IsPaused;
+    public bool CanPause => CanPauseAndContinue && IsRunning;
+    public bool CanResume => CanPauseAndContinue && IsPaused;
 }
